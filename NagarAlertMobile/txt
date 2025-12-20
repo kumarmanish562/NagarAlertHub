@@ -1,0 +1,4 @@
+npx create-expo-app NagarAlertMobile --template blank
+cd NagarAlertMobile
+npx expo install react-native-maps axios
+npm install @react-navigation/native @react-navigation/native-stack react-native-screens react-native-safe-area-context@react-navigation/native @react-navigation/native-stack axios expo expo-image-picker expo-location expo-status-bar react react-native react-native-maps react-native-safe-area-context react-native-screens
