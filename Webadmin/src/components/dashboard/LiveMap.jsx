@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import { getReports, getActiveUsers } from '../../services/api';
 
 // Fix for default markers in React Leaflet
 delete L.Icon.Default.prototype._getIconUrl;
@@ -37,6 +38,42 @@ const createCustomIcon = (color) => {
 };
 
 const MapReview = () => {
+    const [incidents, setIncidents] = useState([]);
+    const [users, setUsers] = useState([]);
+
+    const fetchData = async () => {
+        try {
+            // Fetch Reports
+            const reportsData = await getReports();
+            if (reportsData) {
+                // Convert object to array if needed (Firebase returns objects)
+                const reportsArray = Object.entries(reportsData || {}).map(([key, value]) => ({
+                    id: key,
+                    ...value
+                }));
+                setIncidents(reportsArray);
+            }
+
+            // Fetch Active Users
+            const usersData = await getActiveUsers();
+            if (usersData) {
+                const usersArray = Object.entries(usersData || {}).map(([key, value]) => ({
+                    id: key,
+                    ...value
+                }));
+                setUsers(usersArray);
+            }
+        } catch (error) {
+            console.error("Error fetching live map data:", error);
+        }
+    };
+
+    useEffect(() => {
+        fetchData(); // Initial fetch
+        const interval = setInterval(fetchData, 5000); // Poll every 5 seconds
+        return () => clearInterval(interval);
+    }, []);
+
     return (
         <MapContainer
             center={NAGPUR_CENTER}
@@ -46,26 +83,46 @@ const MapReview = () => {
         >
             <TileLayer url={TILE_URL} attribution={ATTRIBUTION} />
 
-            {/* Mock Markers */}
-            <Marker position={[21.1458, 79.0882]} icon={createCustomIcon('#ef4444')}>
-                <Popup>Sitabuldi Incidents</Popup>
-            </Marker>
+            {/* Dynamic Incident Markers */}
+            {incidents.map((incident) => (
+                incident.location && (
+                    <Marker
+                        key={incident.id}
+                        position={[incident.location.lat, incident.location.lng]}
+                        icon={createCustomIcon(incident.status === 'Verified' ? '#ef4444' : '#f59e0b')}
+                    >
+                        <Popup>
+                            <div className="p-2">
+                                <h3 className="font-bold text-sm">{incident.category || 'Incident'}</h3>
+                                <p className="text-xs text-gray-600 mb-1">{incident.description}</p>
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded ${incident.status === 'Verified' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
+                                    }`}>
+                                    {incident.status}
+                                </span>
+                            </div>
+                        </Popup>
+                    </Marker>
+                )
+            ))}
 
-            <Marker position={[21.13, 79.06]} icon={createCustomIcon('#3b82f6')}>
-                <Popup>Response Team</Popup>
-            </Marker>
-
-            <Marker position={[21.16, 79.1]} icon={createCustomIcon('#f59e0b')}>
-                <Popup>Warning</Popup>
-            </Marker>
-
-            <Marker position={[21.12, 79.09]} icon={createCustomIcon('#10b981')}>
-                <Popup>Verified Safe</Popup>
-            </Marker>
-            <Marker position={[21.155, 79.075]} icon={createCustomIcon('#ef4444')}>
-            </Marker>
-            <Marker position={[21.135, 79.11]} icon={createCustomIcon('#3b82f6')}>
-            </Marker>
+            {/* Dynamic Active User Markers */}
+            {users.map((user) => (
+                user.location && (
+                    <Marker
+                        key={user.id}
+                        position={[user.location.latitude, user.location.longitude]}
+                        icon={createCustomIcon('#3b82f6')}
+                    >
+                        <Popup>
+                            <div className="p-1">
+                                <p className="text-xs font-bold text-blue-600">Active Officer</p> {/* Or Citizen */}
+                                <p className="text-[10px] text-gray-500">ID: {user.id}</p>
+                                {/* <p className="text-[10px] text-gray-400">Last Active: {new Date(user.lastActive).toLocaleTimeString()}</p> */}
+                            </div>
+                        </Popup>
+                    </Marker>
+                )
+            ))}
         </MapContainer>
     );
 }

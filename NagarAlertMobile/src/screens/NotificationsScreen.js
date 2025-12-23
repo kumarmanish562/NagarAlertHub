@@ -1,186 +1,56 @@
 import React from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  FlatList,
-} from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, FlatList } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 export default function NotificationsScreen({ navigation }) {
-  const notifications = [
-    {
-      id: "1",
-      title: "New Traffic Alert near your location",
-      time: "15 hours ago",
-      type: "traffic",
-      latitude: 21.252,
-      longitude: 81.63,
-      color: "#ef4444",
-    },
-    {
-      id: "2",
-      title: "Your report on water leak has been verified",
-      time: "12 minutes ago",
-      type: "verified",
-      latitude: 21.248,
-      longitude: 81.628,
-      color: "#22c55e",
-    },
-    {
-      id: "3",
-      title: "Your report on water leak has been verified",
-      time: "17 minutes ago",
-      type: "verified",
-      latitude: 21.246,
-      longitude: 81.632,
-      color: "#22c55e",
-    },
-    {
-      id: "4",
-      title: "New Traffic Alert near your location",
-      time: "10 minutes ago",
-      type: "traffic",
-      latitude: 21.25,
-      longitude: 81.635,
-      color: "#ef4444",
-    },
-    {
-      id: "5",
-      title: "Your report on water leak has been verified",
-      time: "12 minutes ago",
-      type: "verified",
-      latitude: 21.254,
-      longitude: 81.634,
-      color: "#22c55e",
-    },
-    {
-      id: "6",
-      title: "New Traffic Alert near your location",
-      time: "25 minutes ago",
-      type: "traffic",
-      latitude: 21.255,
-      longitude: 81.625,
-      color: "#ef4444",
-    },
+  const data = [
+    { id: "1", text: "New Traffic Alert near Sector 6", time: "2 min ago", icon: "alert-circle", color: "#ef4444" },
+    { id: "2", text: "Water issue resolved in your area", time: "1 hour ago", icon: "checkmark-circle", color: "#22c55e" },
   ];
-
-  const getIcon = (type) => {
-    if (type === "traffic") return "car";
-    if (type === "verified") return "checkmark-circle";
-    return "notifications";
-  };
-
-  const getColor = (type) => {
-    if (type === "traffic") return "#ef4444";
-    if (type === "verified") return "#22c55e";
-    return "#60a5fa";
-  };
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={22} color="#fff" />
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Notifications</Text>
-        <View style={{ width: 22 }} />
+        <TouchableOpacity style={styles.backBtn}>
+          <Ionicons name="ellipsis-horizontal" size={24} color="#fff" />
+        </TouchableOpacity>
       </View>
 
-      {/* Notifications List */}
       <FlatList
-        data={notifications}
-        keyExtractor={(item) => item.id}
+        data={data}
+        keyExtractor={item => item.id}
         contentContainerStyle={styles.list}
         renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.card}
-            onPress={() => navigation.navigate("AlertDetails", { alert: item })}
-          >
-            <View
-              style={[
-                styles.iconBox,
-                { backgroundColor: getColor(item.type) + "20" },
-              ]}
-            >
-              <Ionicons
-                name={getIcon(item.type)}
-                size={18}
-                color={getColor(item.type)}
-              />
+          <TouchableOpacity style={styles.card}>
+            <View style={[styles.iconBox, { backgroundColor: item.color + '20' }]}>
+              <Ionicons name={item.icon} size={22} color={item.color} />
             </View>
-
-            <View style={styles.textBox}>
-              <Text style={styles.title}>{item.title}</Text>
+            <View style={styles.content}>
+              <Text style={styles.text}>{item.text}</Text>
               <Text style={styles.time}>{item.time}</Text>
             </View>
+            {item.id === "1" && <View style={styles.dot} />}
           </TouchableOpacity>
         )}
       />
     </View>
   );
 }
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#020617",
-  },
-
-  /* Header */
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingTop: 50,
-    paddingHorizontal: 16,
-    paddingBottom: 10,
-  },
-  headerTitle: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-
-  /* List */
-  list: {
-    padding: 16,
-    paddingBottom: 80, // space for bottom nav
-  },
-
-  card: {
-    flexDirection: "row",
-    backgroundColor: "#0f172a",
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#1e293b",
-  },
-
-  iconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
-  },
-
-  textBox: {
-    flex: 1,
-  },
-
-  title: {
-    color: "#e5e7eb",
-    fontSize: 14,
-    fontWeight: "500",
-  },
-
-  time: {
-    color: "#9ca3af",
-    fontSize: 12,
-    marginTop: 4,
-  },
+  container: { flex: 1, backgroundColor: "#0f172a" },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingTop: 50, paddingHorizontal: 20, paddingBottom: 20 },
+  backBtn: { padding: 8 },
+  headerTitle: { color: "#fff", fontSize: 18, fontWeight: "600" },
+  list: { padding: 20 },
+  card: { flexDirection: "row", alignItems: "center", backgroundColor: "#1e293b", padding: 16, borderRadius: 16, marginBottom: 12, borderWidth: 1, borderColor: "#334155" },
+  iconBox: { width: 44, height: 44, borderRadius: 22, justifyContent: "center", alignItems: "center", marginRight: 14 },
+  content: { flex: 1 },
+  text: { color: "#f1f5f9", fontSize: 14, fontWeight: "500", lineHeight: 20 },
+  time: { color: "#94a3b8", fontSize: 12, marginTop: 4 },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#ef4444", marginLeft: 8 }
 });

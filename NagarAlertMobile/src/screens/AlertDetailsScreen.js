@@ -1,349 +1,83 @@
 import React from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Image,
-  ScrollView,
-} from "react-native";
-import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-// Reusing dark map style for consistency
-const darkMapStyle = [
-  { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
-  { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
-  { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
-  { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
-  { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
-  { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#263c3f" }] },
-  { featureType: "poi.park", elementType: "labels.text.fill", stylers: [{ color: "#6b9a76" }] },
-  { featureType: "road", elementType: "geometry", stylers: [{ color: "#38414e" }] },
-  { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#212a37" }] },
-  { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#9ca5b3" }] },
-  { featureType: "water", elementType: "geometry", stylers: [{ color: "#17263c" }] },
-  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#515c6d" }] },
-  { featureType: "water", elementType: "labels.text.stroke", stylers: [{ color: "#17263c" }] },
-];
-
 export default function AlertDetailsScreen({ navigation, route }) {
-  const { alert } = route.params;
+  const { alert } = route.params || { alert: { title: "Sample Alert", color: "red", latitude: 0, longitude: 0 } };
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Alert Details</Text>
-        <View style={{ width: 24 }} />
+        <Text style={styles.headerTitle}>Details</Text>
+        <TouchableOpacity style={styles.backBtn}>
+          <Ionicons name="share-social-outline" size={22} color="#fff" />
+        </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Main Image */}
-        <View style={styles.imageContainer}>
-          <Image
-            source={{
-              uri: "https://images.unsplash.com/photo-1506521781263-d8422e82f27a",
-            }}
-            style={styles.image}
-          />
-          <View style={styles.photoTag}>
-            <Text style={styles.photoTagText}>Photo Art</Text>
+      <ScrollView contentContainerStyle={styles.scroll}>
+        <View style={styles.imageCard}>
+          <View style={[styles.statusBadge, { backgroundColor: alert.color }]}>
+            <Text style={styles.statusText}>In Progress</Text>
           </View>
         </View>
 
-        {/* Title & Location */}
-        <View style={styles.infoSection}>
-          <View style={styles.titleRow}>
-            <View style={styles.pinIconBox}>
-              <Ionicons name="location" size={20} color="#94a3b8" />
-            </View>
-            <View>
-              <Text style={styles.title}>{alert.title}</Text>
-              <Text style={styles.locationText}>Main Hill, CA, 95231</Text>
-            </View>
+        <View style={styles.info}>
+          <Text style={styles.title}>{alert.title}</Text>
+          <View style={styles.locationRow}>
+            <Ionicons name="location-sharp" size={16} color="#94a3b8" />
+            <Text style={styles.location}>Sector 4, Main Street, Bhilai</Text>
           </View>
         </View>
 
-        {/* Location Map Snippet */}
-        <Text style={styles.sectionHeader}>Location</Text>
-        <View style={styles.mapWrapper}>
-          <MapView
-            style={styles.map}
-            provider={PROVIDER_GOOGLE}
-            customMapStyle={darkMapStyle}
-            initialRegion={{
-              latitude: alert.latitude,
-              longitude: alert.longitude,
-              latitudeDelta: 0.01,
-              longitudeDelta: 0.01,
-            }}
-            scrollEnabled={false}
-            zoomEnabled={false}
-          >
-            <Marker
-              coordinate={{
-                latitude: alert.latitude,
-                longitude: alert.longitude,
-              }}
-              pinColor={alert.color}
-            />
-          </MapView>
-        </View>
-
-        {/* Status */}
-        <Text style={styles.sectionHeader}>Status</Text>
-        <View style={styles.statusRow}>
-          <View style={[styles.statusBox, styles.statusVerified]}>
-            <Text style={styles.statusTextVerified}>Verified</Text>
-          </View>
-          <View style={[styles.statusBox, styles.statusProgress]}>
-            <Text style={styles.statusTextProgress}>In Progress</Text>
-          </View>
-        </View>
-
-        {/* Timeline */}
-        <Text style={styles.sectionHeader}>Timeline</Text>
-        <View style={styles.timelineContainer}>
-          <TimelineItem
-            color="#10b981" // Green
-            title="Verified"
-            time="16m ago"
-            desc={`${alert.title} Verified`}
-            isLast={false}
-          />
-          <TimelineItem
-            color="#3b82f6" // Blue
-            title="In Progress"
-            time="3m ago"
-            desc="Your report on water leak has been verified"
-            isLast={false}
-          />
-          <TimelineItem
-            color="#64748b" // Grey
-            title="Timeline"
-            time="16m ago"
-            desc="Your report the case outage."
-            isLast={true}
-          />
+        <View style={styles.section}>
+          <Text style={styles.sectionHeader}>Status Timeline</Text>
+          <TimelineItem title="Report Verified" time="10:30 AM" active />
+          <TimelineItem title="Team Assigned" time="11:15 AM" active />
+          <TimelineItem title="Resolution in Progress" time="11:45 AM" active isLast />
         </View>
       </ScrollView>
     </View>
   );
 }
 
-function TimelineItem({ color, title, time, desc, isLast }) {
+function TimelineItem({ title, time, active, isLast }) {
   return (
     <View style={styles.timelineItem}>
       <View style={styles.timelineLeft}>
-        <View style={[styles.timelineDot, { backgroundColor: color }]} />
-        {!isLast && <View style={styles.timelineLine} />}
+        <View style={[styles.dot, active ? { backgroundColor: '#3b82f6', borderColor: '#1d4ed8' } : { backgroundColor: '#334155' }]} />
+        {!isLast && <View style={styles.line} />}
       </View>
-      <View style={styles.timelineContent}>
-        <View style={styles.timelineHeader}>
-          <Text style={styles.timelineTitle}>{title}</Text>
-          <Text style={styles.timelineTime}>{time}</Text>
-        </View>
-        <Text style={styles.timelineDesc}>{desc}</Text>
+      <View style={styles.timelineRight}>
+        <Text style={[styles.tTitle, active ? { color: '#fff' } : { color: '#64748b' }]}>{title}</Text>
+        <Text style={styles.tTime}>{time}</Text>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#0b1221", // Matching dark blue/black
-  },
-  scrollContent: {
-    paddingBottom: 40,
-  },
-
-  /* Header */
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingTop: 50,
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    backgroundColor: "#0b1221",
-  },
-  headerTitle: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "600",
-  },
-  backBtn: {
-    padding: 4,
-  },
-
-  /* Image */
-  imageContainer: {
-    marginHorizontal: 16,
-    borderRadius: 16,
-    overflow: "hidden",
-    height: 200,
-    marginBottom: 20,
-    position: 'relative',
-    backgroundColor: '#1e293b',
-  },
-  image: {
-    width: "100%",
-    height: "100%",
-  },
-  photoTag: {
-    position: 'absolute',
-    bottom: 12,
-    left: 12,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  photoTagText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '500',
-  },
-
-  /* Info */
-  infoSection: {
-    paddingHorizontal: 16,
-    marginBottom: 10,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  pinIconBox: {
-    marginRight: 12,
-    marginTop: 2,
-    width: 24,
-    alignItems: 'center',
-  },
-  title: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 4,
-  },
-  locationText: {
-    color: "#94a3b8",
-    fontSize: 14,
-  },
-
-  /* Section Headers */
-  sectionHeader: {
-    color: "#e2e8f0",
-    fontSize: 16,
-    fontWeight: "600",
-    marginTop: 24,
-    marginBottom: 12,
-    paddingHorizontal: 16,
-  },
-
-  /* Map */
-  mapWrapper: {
-    marginHorizontal: 16,
-    height: 120,
-    borderRadius: 16,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#1e293b',
-  },
-  map: {
-    flex: 1,
-  },
-
-  /* Status */
-  statusRow: {
-    flexDirection: "row",
-    paddingHorizontal: 16,
-    gap: 12,
-  },
-  statusBox: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  statusVerified: {
-    backgroundColor: "#064e3b", // Dark green bg
-    borderWidth: 1,
-    borderColor: "#10b981", // Green border
-  },
-  statusProgress: {
-    backgroundColor: "#422006", // Dark yellow/orange bg
-    borderWidth: 1,
-    borderColor: "#eab308", // Yellow border
-  },
-  statusTextVerified: {
-    color: "#10b981",
-    fontWeight: "bold",
-    fontSize: 14,
-  },
-  statusTextProgress: {
-    color: "#eab308",
-    fontWeight: "bold",
-    fontSize: 14,
-  },
-
-  /* Timeline */
-  timelineContainer: {
-    paddingHorizontal: 16,
-    marginTop: 8,
-  },
-  timelineItem: {
-    flexDirection: 'row',
-    marginBottom: 2, // Spacing handled by content/minHeight
-    minHeight: 70,
-  },
-  timelineLeft: {
-    width: 24,
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  timelineDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    zIndex: 2,
-    marginTop: 4,
-  },
-  timelineLine: {
-    width: 2,
-    flex: 1,
-    backgroundColor: '#334155',
-    marginTop: -2, // pull up to connect
-    marginBottom: -4, // pull down to connect next
-  },
-  timelineContent: {
-    flex: 1,
-    paddingBottom: 20,
-  },
-  timelineHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  timelineTitle: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "600",
-    marginRight: 8,
-  },
-  timelineTime: {
-    color: "#94a3b8",
-    fontSize: 12,
-  },
-  timelineDesc: {
-    color: "#94a3b8",
-    fontSize: 13,
-    lineHeight: 18,
-  },
+  container: { flex: 1, backgroundColor: "#0f172a" },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 50, paddingHorizontal: 20, paddingBottom: 10 },
+  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#1e293b', alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  scroll: { padding: 20 },
+  imageCard: { height: 200, backgroundColor: '#1e293b', borderRadius: 20, marginBottom: 20, position: 'relative' },
+  statusBadge: { position: 'absolute', top: 12, left: 12, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
+  statusText: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
+  info: { marginBottom: 30 },
+  title: { color: '#fff', fontSize: 22, fontWeight: 'bold', marginBottom: 8 },
+  locationRow: { flexDirection: 'row', alignItems: 'center' },
+  location: { color: '#94a3b8', marginLeft: 6 },
+  section: { backgroundColor: '#1e293b', padding: 20, borderRadius: 20 },
+  sectionHeader: { color: '#fff', fontSize: 16, fontWeight: '600', marginBottom: 20 },
+  timelineItem: { flexDirection: 'row', height: 70 },
+  timelineLeft: { alignItems: 'center', width: 30 },
+  dot: { width: 14, height: 14, borderRadius: 7, borderWidth: 2, zIndex: 2 },
+  line: { width: 2, flex: 1, backgroundColor: '#334155', marginVertical: 4 },
+  timelineRight: { marginLeft: 10, justifyContent: 'flex-start', paddingTop: -2 },
+  tTitle: { fontSize: 16, fontWeight: '500', marginBottom: 4 },
+  tTime: { color: '#64748b', fontSize: 12 }
 });
