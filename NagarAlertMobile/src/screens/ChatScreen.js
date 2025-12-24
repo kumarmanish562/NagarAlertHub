@@ -4,11 +4,8 @@ import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
 
 export default function ChatScreen({ navigation }) {
     const openWhatsApp = () => {
-        // Use standard deep link. 
-        // Token provided (likely for backend bot): eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-        // For now, opening the official WhatsApp app with a placeholder number.
-        // Replace '919876543210' with your actual bot number.
-        Linking.openURL(`https://wa.me/919999999999?text=Hello%20Nagar%20Alert`);
+        // Opening chat with the support number (from Green-API dashboard)
+        Linking.openURL(`https://wa.me/918872825483?text=Hello%20Nagar%20Alert`);
     };
 
     return (

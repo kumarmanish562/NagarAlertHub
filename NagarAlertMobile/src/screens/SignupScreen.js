@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { registerUser } from "../services/api";
 import { Alert, ActivityIndicator } from "react-native";
@@ -12,7 +13,8 @@ export default function SignupScreen({ navigation }) {
     email: "",
     mobile: "",
     password: "",
-    confirmPassword: ""
+    confirmPassword: "",
+    area: "Sector 4"
   });
   const [loading, setLoading] = useState(false);
 
@@ -39,12 +41,18 @@ export default function SignupScreen({ navigation }) {
         email: formData.email,
         mobile: formData.mobile,
         password: formData.password,
+        area: formData.area,
         role: "user"
       };
 
       console.log("Sending Signup Payload:", payload);
       const response = await registerUser(payload);
       console.log("Signup Success:", response);
+
+      // Store user area for WebSocket subscription
+      if (response.userId) {
+        await AsyncStorage.setItem('userArea', formData.area);
+      }
 
       Alert.alert("Success", "Account created successfully! Please Login.", [
         { text: "OK", onPress: () => navigation.navigate("Login") }
@@ -95,8 +103,6 @@ export default function SignupScreen({ navigation }) {
           />
         </View>
 
-        {/* Username is optional or derived, skipping for now based on backend model */}
-
         <Input
           placeholder="Email Address"
           icon="mail-outline"
@@ -110,6 +116,12 @@ export default function SignupScreen({ navigation }) {
           keyboardType="phone-pad"
           value={formData.mobile}
           onChangeText={(text) => handleChange("mobile", text)}
+        />
+        <Input
+          placeholder="Area/Sector (e.g., Sector 4)"
+          icon="location-outline"
+          value={formData.area}
+          onChangeText={(text) => handleChange("area", text)}
         />
         <Input
           placeholder="Password"

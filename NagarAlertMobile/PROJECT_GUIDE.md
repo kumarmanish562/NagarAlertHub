@@ -71,7 +71,7 @@ If you were to recreate this app or run it on a new machine, follow these steps:
     npm install
     ```
 
-3.  **Start the Development Server**:
+3.  **Start the Development Server (Expo Go)**:
     Launch the Metro bundler:
     ```bash
     npx expo start
@@ -79,6 +79,53 @@ If you were to recreate this app or run it on a new machine, follow these steps:
     - Press `a` to run on an Android Emulator (if set up).
     - Press `i` to run on an iOS Simulator (Mac only).
     - **Scan the QR Code**: Use the "Expo Go" app on your phone to scan the QR code displayed in the terminal to run it on your physical device.
+
+> Note: Expo Go has limitations for some features (e.g., remote push notifications and some background services). See the section below for development builds.
+
+---
+
+## 5. Remote Push Notifications and Dev Builds
+
+Remote push notifications via `expo-notifications` are not supported in Expo Go starting SDK 53+. Use a Development Build to test remote push and background services.
+
+### Config in this app
+- `app.json` includes the `expo-notifications` plugin and Android channel defaults.
+- Android notification channel is created at runtime in `src/services/notificationService.js`.
+
+### Build a Dev Client (Android)
+Option A: Local dev build (no EAS account required):
+```bash
+cd NagarAlertMobile
+npx expo run:android
+npx expo start --dev-client
+```
+
+Option B: EAS development build (recommended):
+```bash
+npm i -g eas-cli
+cd NagarAlertMobile
+eas login
+eas init  # if prompted
+eas build --profile development --platform android
+npx expo start --dev-client
+```
+
+### Optional: FCM Setup for Production
+1. Create a Firebase project and enable Cloud Messaging.
+2. Download `google-services.json` for Android and place it at the project root of `NagarAlertMobile`.
+3. Reference it in `app.json` under `android.googleServicesFile`:
+```json
+{
+    "expo": {
+        "android": {
+            "googleServicesFile": "./google-services.json"
+        }
+    }
+}
+```
+4. In EAS dashboard, upload your FCM server credentials to enable Expo Push service.
+
+---
 
 ### Creating a New Project (Reference)
 If you wanted to start a *new* project like this from scratch, you would run:

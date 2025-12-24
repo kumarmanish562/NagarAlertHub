@@ -42,7 +42,8 @@
           "locationAlwaysAndWhenInUsePermission": "Allow Nagar Alert to use your location."
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      "expo-font"
     ],
     "web": {
       "favicon": "./assets/favicon.png"

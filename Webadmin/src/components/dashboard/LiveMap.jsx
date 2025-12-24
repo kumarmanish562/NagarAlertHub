@@ -94,6 +94,7 @@ const MapReview = () => {
                         <Popup>
                             <div className="p-2">
                                 <h3 className="font-bold text-sm">{incident.category || 'Incident'}</h3>
+                                {incident.address && <p className="text-xs font-semibold text-gray-800 mb-1" style={{ color: '#333' }}>{incident.address}</p>}
                                 <p className="text-xs text-gray-600 mb-1">{incident.description}</p>
                                 <span className={`text-[10px] px-1.5 py-0.5 rounded ${incident.status === 'Verified' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
                                     }`}>

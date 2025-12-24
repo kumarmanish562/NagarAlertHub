@@ -2,7 +2,9 @@ from fastapi import APIRouter, File, UploadFile, Form, HTTPException
 from typing import Optional
 from app.services.gemini_service import gemini_service
 from app.services.firebase_service import firebase_service
-# from app.services.maps_service import maps_service # Future implementation
+from app.services.whatsapp_service import send_green_alert
+# Import the Alert Service to send WhatsApp messages
+from app.services.alert_service import broadcast_alert_to_area 
 import shutil
 import os
 from datetime import datetime
@@ -15,6 +17,7 @@ async def submit_report(
     latitude: float = Form(...),
     longitude: float = Form(...),
     description: Optional[str] = Form(""),
+    address: Optional[str] = Form(""),
     category: str = Form("Traffic"),
     user_id: str = Form("anonymous")
 ):
@@ -30,9 +33,7 @@ async def submit_report(
     except Exception as e:
         raise HTTPException(status_code=400, detail="Invalid image file")
 
-    # 2. Analyze with Gemini (City Intelligence)
-    # We ask Gemini to return JSON or a specific format if possible, or just parse the text.
-    # For now, we simply pass the image and get a description.
+    # 2. Analyze with Gemini
     prompt = """
     Analyze this image for civic issues like potholes, garbage, street light issues, or accidents.
     Answer with a JSON object containing:
@@ -44,26 +45,23 @@ async def submit_report(
     
     ai_analysis = await gemini_service.analyze_image(image_bytes, prompt=prompt)
     
-    # Parse AI response (Mocking logic if AI fails or for simplicity)
-    # In production, we'd robustly parse the JSON string from Gemini
-    
-    # Default fallback if Gemini isn't active or fails
+    # Default fallback logic
     report_status = "Pending Verification"
     issue_type = "reported_issue"
     confidence = 0.0
     
     if "analysis" in ai_analysis and ai_analysis["analysis"]:
-        # Naive check - in reality, parse the JSON
         text_resp = ai_analysis["analysis"].lower()
         if "true" in text_resp or "pothole" in text_resp or "garbage" in text_resp:
             report_status = "Verified"
             issue_type = "Verified Issue"
             confidence = 0.95
     
-    # 3. Construct Payload for Firebase
+    # 3. Construct Payload
     report_payload = {
         "userId": user_id,
-        "category": category, # Added category
+        "category": category,
+        "address": address,
         "location": {
             "lat": latitude,
             "lng": longitude
@@ -74,14 +72,20 @@ async def submit_report(
             "detectedType": issue_type,
             "confidence": confidence
         },
-        "status": report_status, # Verified, Pending, Rejected
+        "status": report_status,
         "timestamp_local": datetime.now().isoformat(),
-        # In a real app, upload image to Cloud Storage and save URL here
-        # "imageUrl": "https://storage.googleapis.com/..." 
     }
 
     # 4. Save to Firebase
     db_result = firebase_service.save_report(report_payload)
+
+    # 5. Notify Admin (Bot Logic)
+    try:
+        ADMIN_PHONE = "918872825483"
+        admin_msg = f"🚨 *New Incident Reported*\n\nType: {category}\nLocation: {latitude}, {longitude}\nStatus: {report_status}\n\nID: {db_result.get('id')}\n\nAuthorize on Dashboard."
+        send_green_alert(ADMIN_PHONE, admin_msg)
+    except Exception as e:
+        print(f"Failed to notify admin: {e}")
 
     return {
         "message": "Report submitted successfully",
@@ -95,16 +99,32 @@ async def get_reports():
     """
     Get all reports (Admin usage).
     """
-    # In a real app, check for admin token/auth here
     reports = firebase_service.get_reports()
     return reports
 
 @router.patch("/{report_id}/verify")
-async def verify_report(report_id: str, status: str = Form("Verified")):
+async def verify_report(
+    report_id: str, 
+    status: str = Form("Verified"), 
+    area: str = Form("Sector 4"),       # New Field: Admin inputs area
+    issue_type: str = Form("Pothole")   # New Field: Admin confirms issue type
+):
     """
     Admin manually verifies or rejects a report.
+    If Verified, it triggers a WhatsApp Broadcast to that Area.
     """
+    # 1. Update Firebase
     result = firebase_service.update_report_status(report_id, status)
     if "error" in result:
          raise HTTPException(status_code=500, detail=result["error"])
-    return result
+
+    # 2. TRIGGER WHATSAPP ALERT (New Logic)
+    alert_result = {"status": "skipped"}
+    if status == "Verified":
+        # Call the alert service we created
+        alert_result = await broadcast_alert_to_area(incident_area=area, issue_type=issue_type)
+
+    return {
+        "firebase_update": result,
+        "whatsapp_alert": alert_result
+    }

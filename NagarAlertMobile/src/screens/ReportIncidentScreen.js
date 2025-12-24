@@ -9,11 +9,13 @@ import {
   Image,
   ScrollView,
   Alert,
-  ActivityIndicator
+  ActivityIndicator,
+  Platform
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
+import api, { BASE_URL as API_URL } from "../services/api";
 
 export default function ReportIncidentScreen({ navigation }) {
   const [selectedType, setSelectedType] = useState("Traffic");
@@ -22,34 +24,34 @@ export default function ReportIncidentScreen({ navigation }) {
   const [autoLocation, setAutoLocation] = useState(true);
   const [currentAddress, setCurrentAddress] = useState("Detecting location...");
   const [manualAddress, setManualAddress] = useState("");
+  const [locationCoords, setLocationCoords] = useState(null); // Stores {lat, lng}
   const [isFetchingLocation, setIsFetchingLocation] = useState(false);
 
-  // Media State
+  // Media & Submission States
   const [image, setImage] = useState(null);
   const [description, setDescription] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const types = [
     { name: "Traffic", icon: "car", color: "#ef4444" },
-    { name: "Power", icon: "flash", color: "#eab308" },
+    { name: "Pothole", icon: "construct", color: "#f97316" }, // Changed for relevance
+    { name: "Garbage", icon: "trash", color: "#22c55e" },
     { name: "Water", icon: "water", color: "#3b82f6" },
-    { name: "Trash", icon: "trash", color: "#22c55e" },
   ];
 
   // --- 1. Image Picker Logic ---
   const pickImage = async () => {
-    // Request permission
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert("Permission Denied", "We need camera roll permissions to upload.");
       return;
     }
 
-    // Launch Picker
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [4, 3],
-      quality: 1,
+      quality: 0.7, // Optimized quality for upload
     });
 
     if (!result.canceled) {
@@ -74,46 +76,114 @@ export default function ReportIncidentScreen({ navigation }) {
         return;
       }
 
-      let location = await Location.getCurrentPositionAsync({});
+      let location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
       let { latitude, longitude } = location.coords;
 
-      console.log("📍 Incident Loc:", latitude, longitude);
+      // Save exact coords for backend
+      setLocationCoords({ latitude, longitude });
+      console.log("📍 GPS:", latitude, longitude);
 
-      // Reverse Geocode to get address
+      // Reverse Geocode for UI
       let addressResponse = await Location.reverseGeocodeAsync({ latitude, longitude });
-
-      let fullAddress = `Lat: ${latitude.toFixed(4)}, Lng: ${longitude.toFixed(4)}`;
 
       if (addressResponse.length > 0) {
         const addr = addressResponse[0];
-        // Construct a readable string
-        const parts = [
-          addr.name,
-          addr.street,
-          addr.city,
-          addr.region,
-          addr.postalCode
-        ].filter(part => part); // Remove null/undefined
-
-        // Join with commas
-        const start = parts.slice(0, 2).join(", ");
-        const end = parts.slice(2).join(", ");
-        fullAddress = `${start}\n${end}\n(Lat: ${latitude.toFixed(4)}, Lng: ${longitude.toFixed(4)})`;
+        const fullAddress = `${addr.street || ''}, ${addr.city || ''}, ${addr.region || ''}`;
+        setCurrentAddress(fullAddress);
+      } else {
+        setCurrentAddress(`Lat: ${latitude.toFixed(4)}, Lng: ${longitude.toFixed(4)}`);
       }
 
-      setCurrentAddress(fullAddress);
     } catch (error) {
       console.log("Loc Error:", error);
-      setCurrentAddress("Location unavailable");
+      setCurrentAddress("Location unavailable. Try manual.");
     } finally {
       setIsFetchingLocation(false);
     }
   };
 
-  const handleSubmit = () => {
-    // Logic to submit data
-    Alert.alert("Report Submitted", "Thank you for your report!");
-    navigation.goBack();
+  // --- 3. Submit Logic ---
+  const handleSubmit = async () => {
+    // 1. Validation
+    if (!image) {
+      Alert.alert("Evidence Required", "Please upload a photo of the incident.");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // 2. Get Final Location (GPS or Manual Geocode)
+      let finalLat = 0;
+      let finalLng = 0;
+
+      if (autoLocation && locationCoords) {
+        finalLat = locationCoords.latitude;
+        finalLng = locationCoords.longitude;
+      } else if (!autoLocation && manualAddress) {
+        // Geocode the manual string
+        const geocoded = await Location.geocodeAsync(manualAddress);
+        if (geocoded.length > 0) {
+          finalLat = geocoded[0].latitude;
+          finalLng = geocoded[0].longitude;
+        } else {
+          Alert.alert("Invalid Address", "Could not find location coordinates for this address.");
+          setIsSubmitting(false);
+          return;
+        }
+      } else {
+        Alert.alert("Location Missing", "Please provide a valid location.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      // 3. Prepare FormData
+      const formData = new FormData();
+
+      // Image
+      const filename = image.split('/').pop();
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : `image`;
+
+      formData.append('file', { uri: image, name: filename, type });
+
+      // Data fields
+      formData.append('latitude', String(finalLat));
+      formData.append('longitude', String(finalLng));
+      formData.append('address', autoLocation ? currentAddress : manualAddress);
+      formData.append('description', description);
+      formData.append('category', selectedType);
+      formData.append('user_id', "user_123"); // Hardcoded for hackathon demo
+
+      console.log("🚀 Sending Report:", formData);
+
+      // 4. Send API Request
+      const response = await fetch(`${API_URL}/reports/submit`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        Alert.alert(
+          "✅ Success",
+          `Report #${result.reportId} Submitted!\nAI Verification: ${result.ai_verification}`
+        );
+        navigation.goBack();
+      } else {
+        Alert.alert("Error", result.detail || "Submission failed");
+      }
+
+    } catch (error) {
+      console.log("Submit Error:", error);
+      Alert.alert("Network Error", "Could not connect to server. Check your internet or API URL.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -128,6 +198,7 @@ export default function ReportIncidentScreen({ navigation }) {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
+
         {/* Incident Type Grid */}
         <Text style={styles.sectionTitle}>What's the issue?</Text>
         <View style={styles.grid}>
@@ -152,7 +223,7 @@ export default function ReportIncidentScreen({ navigation }) {
         </View>
 
         {/* Upload Media Section */}
-        <Text style={styles.sectionTitle}>Evidence</Text>
+        <Text style={styles.sectionTitle}>Evidence (Required)</Text>
         <TouchableOpacity style={styles.uploadArea} onPress={pickImage}>
           {image ? (
             <View style={styles.imagePreviewContainer}>
@@ -174,13 +245,12 @@ export default function ReportIncidentScreen({ navigation }) {
         {/* Location Section */}
         <Text style={styles.sectionTitle}>Location</Text>
         <View style={styles.locationContainer}>
-          {/* Toggle Switch Row */}
           <View style={styles.locationHeader}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <View style={[styles.miniIcon, { backgroundColor: autoLocation ? '#3b82f6' : '#64748b' }]}>
                 <Ionicons name={autoLocation ? "navigate" : "map"} size={14} color="#fff" />
               </View>
-              <Text style={styles.locationLabel}>Use Current Location</Text>
+              <Text style={styles.locationLabel}>Use GPS Location</Text>
             </View>
             <Switch
               value={autoLocation}
@@ -190,7 +260,6 @@ export default function ReportIncidentScreen({ navigation }) {
             />
           </View>
 
-          {/* Conditional Input/Display */}
           {autoLocation ? (
             <View style={styles.detectedBox}>
               {isFetchingLocation ? (
@@ -198,18 +267,21 @@ export default function ReportIncidentScreen({ navigation }) {
               ) : (
                 <Ionicons name="location-sharp" size={18} color="#3b82f6" />
               )}
-              <Text style={styles.detectedText}>
+              <Text style={styles.detectedText} numberOfLines={2}>
                 {isFetchingLocation ? "Fetching GPS..." : currentAddress}
               </Text>
             </View>
           ) : (
-            <TextInput
-              style={styles.manualInput}
-              placeholder="Enter street address or landmark..."
-              placeholderTextColor="#64748b"
-              value={manualAddress}
-              onChangeText={setManualAddress}
-            />
+            <View>
+              <TextInput
+                style={styles.manualInput}
+                placeholder="Enter address (e.g., Sector 4 Market)"
+                placeholderTextColor="#64748b"
+                value={manualAddress}
+                onChangeText={setManualAddress}
+              />
+              <Text style={styles.helperText}>We will detect coords automatically.</Text>
+            </View>
           )}
         </View>
 
@@ -217,7 +289,7 @@ export default function ReportIncidentScreen({ navigation }) {
         <Text style={styles.sectionTitle}>Description</Text>
         <TextInput
           style={styles.input}
-          placeholder="Describe the incident details..."
+          placeholder="Describe the incident..."
           placeholderTextColor="#64748b"
           multiline
           textAlignVertical="top"
@@ -228,8 +300,16 @@ export default function ReportIncidentScreen({ navigation }) {
 
       {/* Footer Button */}
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit}>
-          <Text style={styles.submitText}>Submit Report</Text>
+        <TouchableOpacity
+          style={[styles.submitBtn, isSubmitting && { opacity: 0.7 }]}
+          onPress={handleSubmit}
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.submitText}>Submit Report</Text>
+          )}
         </TouchableOpacity>
       </View>
     </View>
@@ -290,18 +370,16 @@ const styles = StyleSheet.create({
     width: 24, height: 24, borderRadius: 6, alignItems: 'center', justifyContent: 'center', marginRight: 10
   },
   locationLabel: { color: "#fff", fontWeight: '500', fontSize: 15 },
-
-  // Conditional Box Styles
   detectedBox: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: '#0f172a',
     padding: 14, borderRadius: 12, margin: 6, borderWidth: 1, borderColor: '#3b82f6'
   },
-  detectedText: { color: "#3b82f6", marginLeft: 10, fontWeight: '500' },
-
+  detectedText: { color: "#3b82f6", marginLeft: 10, fontWeight: '500', flex: 1 },
   manualInput: {
     backgroundColor: '#0f172a', borderRadius: 12, padding: 14, margin: 6,
     color: '#fff', fontSize: 15, borderWidth: 1, borderColor: '#334155'
   },
+  helperText: { color: "#64748b", fontSize: 12, marginLeft: 10, marginBottom: 8 },
 
   /* Description & Footer */
   input: {

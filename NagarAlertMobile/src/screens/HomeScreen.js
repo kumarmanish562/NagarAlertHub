@@ -4,6 +4,10 @@ import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { updateUserLocation, getReports } from '../services/api';
+import realtimeService from '../services/realtimeService';
+import { startBackgroundLocationTracking, stopBackgroundLocationTracking, isBackgroundLocationActive } from '../services/backgroundLocationService';
+import { initializePushNotifications, sendAlertNotification, cleanupNotifications } from '../services/notificationService';
+import Constants from 'expo-constants';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -16,15 +20,100 @@ export default function HomeScreen({ navigation }) {
   });
   const [reports, setReports] = useState([]);
   const [currentUserId, setCurrentUserId] = useState(DEFAULT_USER_ID);
+  const [userArea, setUserArea] = useState('');
+  const [isOnline, setIsOnline] = useState(false);
+  const [notificationSubscriptions, setNotificationSubscriptions] = useState(null);
 
-  // Get User ID
+  // Get User ID and Area
   useEffect(() => {
-    const getUserId = async () => {
+    const getUserData = async () => {
       const id = await AsyncStorage.getItem('userId');
+      const area = await AsyncStorage.getItem('userArea') || 'Sector 4';
       if (id) setCurrentUserId(id);
+      setUserArea(area);
     };
-    getUserId();
+    getUserData();
   }, []);
+
+  // Initialize Push Notifications and WebSocket
+  useEffect(() => {
+    const initializeServices = async () => {
+      console.log('🚀 Initializing real-time services...');
+      
+      // Initialize push notifications (skip remote in Expo Go)
+      const isExpoGo = Constants?.appOwnership === 'expo';
+      if (!isExpoGo) {
+        const notifSubs = await initializePushNotifications();
+        if (notifSubs) {
+          setNotificationSubscriptions(notifSubs);
+        }
+      } else {
+        console.log('Skipping remote push initialization in Expo Go');
+      }
+
+      // Start background location tracking
+      const bgStarted = await startBackgroundLocationTracking();
+      console.log(`Background location tracking: ${bgStarted ? '✅' : '❌'}`);
+
+      // Connect to WebSocket
+      await connectWebSocket();
+    };
+
+    initializeServices();
+
+    return () => {
+      // Cleanup
+      if (notificationSubscriptions) {
+        cleanupNotifications(notificationSubscriptions);
+      }
+      realtimeService.disconnect();
+    };
+  }, [currentUserId, userArea]);
+
+  // Connect to WebSocket
+  const connectWebSocket = async () => {
+    if (!currentUserId || currentUserId === DEFAULT_USER_ID) {
+      console.warn('⚠️ Invalid user ID, skipping WebSocket connection');
+      return;
+    }
+
+    try {
+      // Connect with user's areas
+      await realtimeService.connect(currentUserId, [userArea]);
+      setIsOnline(true);
+
+      // Listen for real-time alerts
+      realtimeService.onAlert(async (alert) => {
+        console.log('🚨 Real-time alert received:', alert);
+        
+        // Update reports list
+        const newReport = {
+          id: alert.alertId || `alert-${Date.now()}`,
+          category: alert.issue_type,
+          description: alert.message,
+          area: alert.area,
+          status: 'Verified',
+          location: alert.location || { lat: region.latitude, lng: region.longitude },
+        };
+        
+        setReports(prev => [newReport, ...prev]);
+
+        // Send local notification
+        await sendAlertNotification(alert);
+      });
+
+      // Listen for notifications
+      realtimeService.onNotification((notification) => {
+        console.log('📬 Notification:', notification);
+        Alert.alert('Notification', notification.message || 'You have a new notification');
+      });
+
+      console.log('✅ WebSocket connected and listeners registered');
+    } catch (error) {
+      console.error('❌ WebSocket connection error:', error);
+      setIsOnline(false);
+    }
+  };
 
   // Fetch Reports periodically
   useEffect(() => {
@@ -71,7 +160,7 @@ export default function HomeScreen({ navigation }) {
       setRegion({
         latitude: currentLoc.coords.latitude,
         longitude: currentLoc.coords.longitude,
-        latitudeDelta: 0.01, // Zoom in closer
+        latitudeDelta: 0.01,
         longitudeDelta: 0.01,
       });
 
@@ -79,15 +168,13 @@ export default function HomeScreen({ navigation }) {
       subscription = await Location.watchPositionAsync(
         {
           accuracy: Location.Accuracy.High,
-          timeInterval: 2000, // Update every 2 seconds
-          distanceInterval: 5   // Or every 5 meters
+          timeInterval: 2000,
+          distanceInterval: 5
         },
         (loc) => {
           const { latitude, longitude } = loc.coords;
-          // Update Local Map
-          setRegion(prev => ({ ...prev, latitude, longitude })); // Auto-center
+          setRegion(prev => ({ ...prev, latitude, longitude }));
 
-          // Send to Backend for Admin View
           console.log("📍 Sending Location:", latitude, longitude);
           updateUserLocation(currentUserId, latitude, longitude)
             .catch(err => console.log("Loc Update Fail", err));
@@ -97,14 +184,14 @@ export default function HomeScreen({ navigation }) {
 
     startTracking();
     return () => { if (subscription) subscription.remove(); };
-  }, [currentUserId]); // Re-run if ID changes
+  }, [currentUserId]);
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerSubtitle}>Connected</Text>
+          <Text style={styles.headerSubtitle}>{isOnline ? '🟢 Connected' : '🔴 Offline'}</Text>
           <Text style={styles.headerTitle}>Nagar Alert Hub</Text>
         </View>
         <View style={styles.headerIcons}>
@@ -122,7 +209,7 @@ export default function HomeScreen({ navigation }) {
           provider={PROVIDER_GOOGLE}
           style={styles.map}
           region={region}
-          showsUserLocation={true} // Show blue dot
+          showsUserLocation={true}
           customMapStyle={darkMapStyle}
         >
           {reports.map((report) => (
@@ -137,7 +224,7 @@ export default function HomeScreen({ navigation }) {
             )
           ))}
         </MapView>
-        {/* Search Bar Code (Same as previous) */}
+
         <View style={styles.searchContainer}>
           <View style={styles.searchBar}>
             <Ionicons name="search" size={20} color="#94a3b8" />

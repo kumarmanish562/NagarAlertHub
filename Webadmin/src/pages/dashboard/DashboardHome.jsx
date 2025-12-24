@@ -72,17 +72,20 @@ const DashboardHome = () => {
                                 <tr key={report.id} className="hover:bg-[#334155] transition-colors">
                                     <td className="p-4">
                                         <div className={`px-2 py-1 rounded text-xs font-bold w-fit ${report.category === 'Traffic' ? 'bg-red-500/20 text-red-500' :
-                                                report.category === 'Water' ? 'bg-blue-500/20 text-blue-500' :
-                                                    'bg-yellow-500/20 text-yellow-500'
+                                            report.category === 'Water' ? 'bg-blue-500/20 text-blue-500' :
+                                                'bg-yellow-500/20 text-yellow-500'
                                             }`}>
                                             {report.category || 'General'}
                                         </div>
                                     </td>
                                     <td className="p-4 text-sm text-gray-300 max-w-xs truncate">{report.description || "No description"}</td>
                                     <td className="p-4 text-sm text-gray-400">
-                                        <div className="flex items-center gap-1">
-                                            <MapPin size={14} />
-                                            {report.location ? `${report.location.lat.toFixed(4)}, ${report.location.lng.toFixed(4)}` : "N/A"}
+                                        <div className="flex flex-col gap-1">
+                                            {report.address && <span className="text-white font-medium">{report.address}</span>}
+                                            <div className="flex items-center gap-1 text-xs">
+                                                <MapPin size={12} />
+                                                {report.location ? `${report.location.lat.toFixed(4)}, ${report.location.lng.toFixed(4)}` : "N/A"}
+                                            </div>
                                         </div>
                                     </td>
                                     <td className="p-4">
@@ -95,8 +98,8 @@ const DashboardHome = () => {
                                     </td>
                                     <td className="p-4">
                                         <span className={`text-xs px-2 py-1 rounded-full ${report.status === 'Verified' ? 'bg-green-500/20 text-green-400' :
-                                                report.status === 'Rejected' ? 'bg-red-500/20 text-red-400' :
-                                                    'bg-gray-700 text-gray-300'
+                                            report.status === 'Rejected' ? 'bg-red-500/20 text-red-400' :
+                                                'bg-gray-700 text-gray-300'
                                             }`}>
                                             {report.status}
                                         </span>

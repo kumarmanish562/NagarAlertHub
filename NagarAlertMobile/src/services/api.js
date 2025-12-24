@@ -1,9 +1,10 @@
 import axios from "axios";
 
-// ⚠️ IMPORTANT: Replace this with your computer's Local IP Address (e.g., 192.168.1.5) or a fresh Tunnel URL.
-// "http://10.0.2.2:8000/api/v1" is for Android Emulator
-// "http://192.168.x.x:8000/api/v1" is for Physical Device
-const BASE_URL = "https://tasty-jars-share.loca.lt/api/v1";
+// Connection Status: USING TUNNEL (Bypassing Firewall)
+export const BASE_URL = "https://eleven-drinks-count.loca.lt/api/v1";
+
+// WebSocket URL
+export const WS_BASE_URL = "wss://eleven-drinks-count.loca.lt/api/v1/ws";
 
 const api = axios.create({
   baseURL: BASE_URL,

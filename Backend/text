@@ -3,3 +3,10 @@ python -m venv venv
 .\venv\Scripts\activate
 pip install -r requirements.txt
 uvicorn app.main:app --reload
+
+
+
+89308ccf3eca4a5887fcb7fff57fd82910fdfd6c47584fb2a3
+
+
+7105438068
